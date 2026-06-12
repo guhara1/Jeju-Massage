@@ -2,6 +2,9 @@
 from .site import BASE_URL, BRAND, PHONE, PHONE_DISPLAY
 from .pricing import PRICING
 
+# 네이버 서치어드바이저 사이트 소유확인 — 메인페이지에만 출력
+_NAVER_VERIFICATION = '<meta name="naver-site-verification" content="7fb4e141e28657966f57b39d9643b4fa10172ea9">\n'
+
 _JSONLD = f"""<script type="application/ld+json">
 {{
   "@context": "https://schema.org",
@@ -261,7 +264,7 @@ PAGE = {
     "desc": "제주 출장마사지·홈타이 안내 페이지입니다. 제주시, 서귀포시, 제주공항, 중문관광단지, 애월, 성산, 노형동 등 제주 주요 지역과 교통거점 인근 예약 정보를 확인해보세요.",
     "h1": "제주 출장마사지·홈타이 예약 안내",
     "body": _BODY,
-    "extra_head": _JSONLD,
+    "extra_head": _NAVER_VERIFICATION + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }
