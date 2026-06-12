@@ -12,14 +12,17 @@ import html
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from content import PAGES
-from content.site import (BASE_URL, BRAND, NAV, PHONE, PHONE_DISPLAY)
+from content.site import (BASE_URL, BRAND, INDEXNOW_KEY, NAV, PHONE,
+                          PHONE_DISPLAY)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MIN_INDEX_CHARS = 2000
+BUILD_DT = datetime.now(timezone.utc)
 
 
 def text_length(body_html: str) -> int:
@@ -253,6 +256,7 @@ def build() -> None:
     report = []
     sitemap_urls = []
 
+    indexable_pages = []
     for page in PAGES:
         path = page["path"]  # "" 또는 "jeju/jeju-si/yeon-dong/" 형태
         out_dir = os.path.join(ROOT, path)
@@ -265,11 +269,16 @@ def build() -> None:
         noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
         if not noindex:
             sitemap_urls.append(BASE_URL.rstrip("/") + "/" + path)
+            indexable_pages.append(page)
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
-    # sitemap.xml
+    base = BASE_URL.rstrip("/")
+    lastmod = BUILD_DT.strftime("%Y-%m-%d")
+
+    # sitemap.xml — lastmod 포함 (네이버·구글 공통 지원)
     urls = "\n".join(
-        f"  <url><loc>{u}</loc></url>" for u in sitemap_urls
+        f"  <url><loc>{u}</loc><lastmod>{lastmod}</lastmod></url>"
+        for u in sitemap_urls
     )
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
@@ -278,12 +287,52 @@ def build() -> None:
             f"{urls}\n</urlset>\n"
         )
 
-    # robots.txt
+    # rss.xml — 네이버 서치어드바이저 RSS 제출용 (구글도 sitemap으로 인식)
+    pub_date = BUILD_DT.strftime("%a, %d %b %Y %H:%M:%S +0000")
+    items = []
+    for page in indexable_pages:
+        loc = base + "/" + page["path"]
+        items.append(
+            "  <item>\n"
+            f"    <title>{html.escape(page['title'])}</title>\n"
+            f"    <link>{loc}</link>\n"
+            f"    <guid isPermaLink=\"true\">{loc}</guid>\n"
+            f"    <description>{html.escape(page['desc'])}</description>\n"
+            f"    <pubDate>{pub_date}</pubDate>\n"
+            "  </item>"
+        )
+    with open(os.path.join(ROOT, "rss.xml"), "w", encoding="utf-8") as f:
+        f.write(
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0">\n'
+            "<channel>\n"
+            f"  <title>{html.escape(BRAND)}</title>\n"
+            f"  <link>{base}/</link>\n"
+            "  <description>제주 전지역 방문 출장마사지·홈타이 예약 안내</description>\n"
+            "  <language>ko</language>\n"
+            f"  <lastBuildDate>{pub_date}</lastBuildDate>\n"
+            + "\n".join(items)
+            + "\n</channel>\n</rss>\n"
+        )
+
+    # robots.txt — 전체 허용 + 네이버(Yeti)·구글(Googlebot)·빙 명시 허용
     with open(os.path.join(ROOT, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(
-            "User-agent: *\nAllow: /\n\n"
-            f"Sitemap: {BASE_URL.rstrip('/')}/sitemap.xml\n"
+            "User-agent: *\n"
+            "Allow: /\n\n"
+            "User-agent: Googlebot\n"
+            "Allow: /\n\n"
+            "User-agent: Yeti\n"
+            "Allow: /\n\n"
+            "User-agent: Bingbot\n"
+            "Allow: /\n\n"
+            f"Sitemap: {base}/sitemap.xml\n"
+            f"Sitemap: {base}/rss.xml\n"
         )
+
+    # IndexNow 키 파일 — 빙·네이버 즉시 색인 통보용 소유 확인 파일
+    with open(os.path.join(ROOT, f"{INDEXNOW_KEY}.txt"), "w", encoding="utf-8") as f:
+        f.write(INDEXNOW_KEY)
 
     # .nojekyll (GitHub Pages)
     open(os.path.join(ROOT, ".nojekyll"), "w").close()

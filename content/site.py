@@ -1,10 +1,13 @@
 # 사이트 공통 설정
-# 배포 도메인 확정 후 BASE_URL 을 실제 도메인으로 변경하세요.
-BASE_URL = "https://www.jeju-yeppeum.example.com"
+BASE_URL = "https://jeju-massage.pages.dev"
 
 BRAND = "제주 예쁨 마사지"
 PHONE = "0508-202-4723"
 PHONE_DISPLAY = "0508-202-4723"
+
+# IndexNow API 키 — 빌드 시 루트에 {키}.txt 소유 확인 파일이 생성된다.
+# scripts/indexnow_submit.py 가 이 키로 빙·네이버에 색인 요청을 보낸다.
+INDEXNOW_KEY = "035cd3202fb1448e926f1a30302e1e66"
 
 # 상단 메뉴 — 하위 메뉴에는 키워드를 반복하지 않고 지역명·거점명만 짧게 표시한다.
 # 지역+교통거점+테마 조합 메뉴는 만들지 않는다.

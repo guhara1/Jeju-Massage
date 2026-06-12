@@ -48,8 +48,39 @@ python3 build.py
 - 모든 페이지 본문은 페이지별 고유 작성 (지역명만 바꾼 복붙 없음)
 - Canonical 자기 자신, Breadcrumb 전체 페이지 적용
 
-## 배포 전 해야 할 일
+## 검색엔진 색인 (네이버·구글)
 
-1. `content/site.py`의 `BASE_URL`을 실제 도메인으로 변경
-2. `python3 build.py` 재실행 (canonical·sitemap·robots.txt에 반영됨)
-3. Google Search Console에 `sitemap.xml` 제출
+배포 도메인: `https://jeju-massage.pages.dev` (`content/site.py`의 `BASE_URL`)
+
+빌드 시 자동 생성되는 색인 관련 파일:
+
+- `sitemap.xml` — 인덱스 허용 페이지 전체, `lastmod` 포함
+- `rss.xml` — RSS 2.0 피드 (네이버 서치어드바이저 RSS 제출용, 구글도 sitemap으로 인식)
+- `robots.txt` — 전체 허용 + Googlebot·Yeti(네이버)·Bingbot 명시 허용, sitemap·rss 선언
+- `{INDEXNOW_KEY}.txt` — IndexNow 소유 확인 키 파일
+
+### 가장 빠른 색인 절차
+
+1. **네이버 서치어드바이저** (https://searchadvisor.naver.com)
+   - 사이트 등록 → 소유확인(메인페이지 meta 태그 이미 삽입됨)
+   - 요청 > 사이트맵 제출: `sitemap.xml`, RSS 제출: `rss.xml`
+   - 요청 > 웹 페이지 수집: 메인 URL 즉시 수집 요청
+2. **구글 서치 콘솔** (https://search.google.com/search-console)
+   - 속성 추가 → `sitemap.xml` 제출 → URL 검사에서 메인 URL "색인 생성 요청"
+   - ※ 구글의 sitemap ping 엔드포인트는 2023년 폐지되어 Search Console 제출이 정석
+3. **IndexNow 즉시 통보** (빙·네이버 등 참여 엔진, 새 글 올릴 때마다):
+   ```bash
+   python3 scripts/indexnow_submit.py                     # sitemap 전체 제출
+   python3 scripts/indexnow_submit.py https://.../new/    # 특정 URL만
+   ```
+4. **구글 Indexing API** (보조 수단, 서비스 계정 필요):
+   ```bash
+   GOOGLE_SERVICE_ACCOUNT_JSON=key.json python3 scripts/google_indexing_api.py
+   ```
+   설정 방법은 `scripts/google_indexing_api.py` 상단 주석 참고.
+
+## 도메인 변경 시
+
+1. `content/site.py`의 `BASE_URL` 변경
+2. `python3 build.py` 재실행 (canonical·sitemap·rss·robots.txt에 반영됨)
+3. 위 색인 절차 다시 진행
