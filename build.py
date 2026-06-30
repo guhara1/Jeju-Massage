@@ -9,6 +9,7 @@ content/ 패키지의 페이지 정의를 읽어 정적 HTML을 생성한다.
   - 지역+교통거점+테마 조합 경로는 생성 자체가 불가능한 구조
 """
 import html
+import json
 import os
 import re
 import sys
@@ -17,10 +18,12 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from content import PAGES
-from content.site import (BASE_URL, BRAND, INDEXNOW_KEY, NAV, PHONE,
-                          PHONE_DISPLAY)
+from content.site import (BASE_URL, BRAND, INDEXNOW_KEY, NAV,
+                          NAVER_VERIFICATION_CODES, PHONE, PHONE_DISPLAY,
+                          RATING_VALUE, REVIEW_COUNT, REVIEWS)
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+SITE = BASE_URL.rstrip("/")
 MIN_INDEX_CHARS = 2000
 BUILD_DT = datetime.now(timezone.utc)
 
@@ -106,6 +109,239 @@ def render_toc(items) -> str:
     )
 
 
+# ──────────────────────────────────────────────────────────────
+# 구조화 데이터(JSON-LD) — 전 페이지 일괄 적용
+#   · HealthAndBeautyBusiness + AggregateRating(평점) + Review(후기)
+#   · BreadcrumbList (브레드크럼이 있는 페이지)
+#   · FAQPage (본문 faq-item 을 자동 추출)
+#   · WebSite (메인)
+# ──────────────────────────────────────────────────────────────
+AREA_RE = re.compile(r"^jeju/(jeju-si|seogwipo-si)/[^/]+/$")
+PLACE_RE = re.compile(r"^jeju/places/[^/]+/$")
+THEME_RE = re.compile(r"^themes/[^/]+/$")
+INFO_LEAF = {"massage/", "courses/", "reservation/", "guide/", "reviews/",
+             "support/", "about/"}
+_BUSINESS_ID = SITE + "/#business"
+
+
+def strip_tags(s: str) -> str:
+    s = re.sub(r"<[^>]+>", "", s)
+    return html.unescape(re.sub(r"\s+", " ", s)).strip()
+
+
+def short_name(page: dict) -> str:
+    bc = page.get("breadcrumb") or []
+    return bc[-1][0] if bc else page["h1"]
+
+
+def area_name(page: dict) -> str:
+    bc = page.get("breadcrumb") or []
+    if AREA_RE.match(page["path"]) and len(bc) >= 2:
+        return f"제주특별자치도 {bc[1][0]} {bc[-1][0]}"
+    return "제주특별자치도"
+
+
+def business_node(area: str, with_reviews: bool) -> dict:
+    node = {
+        "@type": "HealthAndBeautyBusiness",
+        "@id": _BUSINESS_ID,
+        "name": BRAND,
+        "telephone": PHONE,
+        "url": SITE + "/",
+        "image": SITE + "/assets/og-image.png",
+        "description": "제주 전지역 방문 출장마사지·홈타이 예약 안내",
+        "areaServed": {"@type": "AdministrativeArea", "name": area},
+        "openingHours": "Mo-Su 00:00-24:00",
+        "priceRange": "₩90,000 - ₩180,000",
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": str(RATING_VALUE),
+            "reviewCount": str(REVIEW_COUNT),
+            "bestRating": "5",
+            "worstRating": "1",
+        },
+    }
+    if with_reviews:
+        node["review"] = [
+            {
+                "@type": "Review",
+                "author": {"@type": "Person", "name": f"{init}님"},
+                "reviewRating": {"@type": "Rating", "ratingValue": str(score),
+                                 "bestRating": "5", "worstRating": "1"},
+                "reviewBody": body,
+                "itemReviewed": {"@id": _BUSINESS_ID},
+            }
+            for init, score, loc, body in REVIEWS
+        ]
+    return node
+
+
+def faq_node(body: str):
+    items = re.findall(
+        r'<div class="faq-item">\s*<h3>(.*?)</h3>\s*<p>(.*?)</p>', body, flags=re.S
+    )
+    if not items:
+        return None
+    return {
+        "@type": "FAQPage",
+        "mainEntity": [
+            {"@type": "Question", "name": strip_tags(q),
+             "acceptedAnswer": {"@type": "Answer", "text": strip_tags(a)}}
+            for q, a in items
+        ],
+    }
+
+
+def breadcrumb_node(crumbs, canonical):
+    if not crumbs:
+        return None
+    items = [{"@type": "ListItem", "position": 1, "name": "홈", "item": SITE + "/"}]
+    for i, (label, href) in enumerate(crumbs, start=2):
+        items.append({
+            "@type": "ListItem", "position": i, "name": label,
+            "item": (SITE + href) if href else canonical,
+        })
+    return {"@type": "BreadcrumbList", "itemListElement": items}
+
+
+def build_jsonld(page: dict, canonical: str) -> str:
+    path = page["path"]
+    nodes = [business_node(area_name(page), with_reviews=path in ("", "reviews/"))]
+    bc = breadcrumb_node(page.get("breadcrumb") or [], canonical)
+    if bc:
+        nodes.append(bc)
+    faq = faq_node(page["body"])
+    if faq:
+        nodes.append(faq)
+    if path == "":
+        nodes.append({"@type": "WebSite", "@id": SITE + "/#website",
+                      "name": BRAND, "url": SITE + "/", "inLanguage": "ko"})
+    graph = {"@context": "https://schema.org", "@graph": nodes}
+    return ('<script type="application/ld+json">\n'
+            + json.dumps(graph, ensure_ascii=False, indent=2)
+            + "\n</script>\n")
+
+
+# ──────────────────────────────────────────────────────────────
+# 내부링크 강화 — 롱테일 주제의 관련 안내 블록을 leaf 페이지마다 자동 생성
+# ──────────────────────────────────────────────────────────────
+_THEME_PICKS = [
+    ("스웨디시", "/themes/swedish/"), ("아로마테라피", "/themes/aroma/"),
+    ("타이마사지", "/themes/thai/"), ("홈케어", "/themes/homecare/"),
+    ("발마사지", "/themes/foot/"), ("커플 관리", "/themes/couple/"),
+    ("호텔식마사지", "/themes/hotel-style/"), ("스포츠·경락", "/themes/sports/"),
+    ("로미로미", "/themes/lomilomi/"), ("24시간", "/themes/24hours/"),
+]
+_INFO_PICKS = [
+    ("코스안내", "/courses/"), ("예약안내", "/reservation/"),
+    ("이용가이드", "/guide/"), ("이용 후기", "/reviews/"),
+]
+
+# 지역·거점·테마 형제 페이지 묶음(부모 경로 → [(이름, href)])
+_SIBLINGS = {}
+for _p in PAGES:
+    _path = _p["path"]
+    if AREA_RE.match(_path) or PLACE_RE.match(_path) or THEME_RE.match(_path):
+        _parent = _path.rsplit("/", 2)[0] + "/"
+        _SIBLINGS.setdefault(_parent, []).append((short_name(_p), "/" + _path))
+
+
+def _rotate(items, seed):
+    if not items:
+        return items
+    off = sum(ord(c) for c in seed) % len(items)
+    return items[off:] + items[:off]
+
+
+def _grid(links):
+    cells = "".join(
+        f'<li><a href="{h}">{html.escape(t)}</a></li>' for t, h in links
+    )
+    return f'<ul class="card-grid">{cells}</ul>'
+
+
+def render_related(page: dict) -> str:
+    path = page["path"]
+    self_href = "/" + path
+    name = short_name(page)
+    intro = ""
+    groups = []  # (소제목, [(텍스트, href)])
+
+    if AREA_RE.match(path):
+        parent = path.rsplit("/", 2)[0] + "/"
+        sibs = [(t, h) for t, h in _SIBLINGS.get(parent, []) if h != self_href]
+        sibs = _rotate(sibs, path)[:6]
+        intro = (f"{name} 출장마사지·홈타이 예약 전, 가까운 지역과 인기 관리 테마, "
+                 f"예약·이용 안내를 함께 확인해 보세요.")
+        groups = [
+            (f"{name} 주변 지역 출장마사지", [(f"{t} 출장마사지", h) for t, h in sibs]),
+            (f"{name}에서 많이 찾는 관리 테마", _rotate(_THEME_PICKS, path)[:6]),
+            ("예약·이용 안내", _INFO_PICKS),
+        ]
+    elif PLACE_RE.match(path):
+        parent = "jeju/places/"
+        # 일부 거점 라벨은 이미 '인근'을 포함하므로 중복을 막기 위해 정규화한다.
+        def _nearby(label):
+            return re.sub(r"\s*인근$", "", label).strip() + " 인근"
+        base = re.sub(r"\s*인근$", "", name).strip()
+        sibs = [(t, h) for t, h in _SIBLINGS.get(parent, []) if h != self_href]
+        sibs = _rotate(sibs, path)[:6]
+        intro = (f"{base} 인근 출장마사지·홈타이 방문 전, 가까운 교통거점과 관리 테마, "
+                 f"지역별 안내를 함께 살펴보세요.")
+        groups = [
+            (f"{base} 주변 교통거점 안내", [(_nearby(t), h) for t, h in sibs]),
+            ("거점 인근 인기 관리 테마", _rotate(_THEME_PICKS, path)[:6]),
+            ("지역·예약 안내", [
+                ("제주시 출장마사지", "/jeju/jeju-si/"),
+                ("서귀포시 출장마사지", "/jeju/seogwipo-si/"),
+                ("예약안내", "/reservation/"), ("이용 후기", "/reviews/")]),
+        ]
+    elif THEME_RE.match(path):
+        parent = "themes/"
+        sibs = [(t, h) for t, h in _SIBLINGS.get(parent, []) if h != self_href]
+        sibs = _rotate(sibs, path)[:8]
+        intro = (f"{name} 외에 제주 출장마사지·홈타이에서 고를 수 있는 다른 관리 테마와 "
+                 f"지역·거점별 안내, 코스·예약 정보를 함께 확인해 보세요.")
+        groups = [
+            ("다른 관리 테마 둘러보기", sibs),
+            ("지역·거점별 출장마사지 안내", [
+                ("제주시 출장마사지", "/jeju/jeju-si/"),
+                ("서귀포시 출장마사지", "/jeju/seogwipo-si/"),
+                ("교통거점별 안내", "/jeju/places/")]),
+            ("코스·예약 안내", [
+                ("코스안내", "/courses/"), ("예약안내", "/reservation/"),
+                ("이용가이드", "/guide/")]),
+        ]
+    elif path in INFO_LEAF:
+        intro = ("제주 출장마사지·홈타이 예약 전, 지역별·테마별 안내와 코스·예약 정보를 "
+                 "함께 확인하시면 더 빠르게 결정하실 수 있습니다.")
+        groups = [
+            ("제주 지역·테마별 출장마사지 안내", [
+                ("제주시 출장마사지", "/jeju/jeju-si/"),
+                ("서귀포시 출장마사지", "/jeju/seogwipo-si/"),
+                ("교통거점별 안내", "/jeju/places/"),
+                ("테마별 안내", "/themes/")]),
+            ("예약 전 함께 보기", [
+                ("제주 출장마사지 안내", "/massage/"), ("코스안내", "/courses/"),
+                ("예약안내", "/reservation/"), ("이용가이드", "/guide/"),
+                ("이용 후기", "/reviews/")]),
+        ]
+    else:
+        return ""  # 메인·허브·noindex 페이지는 이미 충분한 내부링크 보유
+
+    parts = ['<section class="related-links"><h2>함께 보면 좋은 안내</h2>']
+    if intro:
+        parts.append(f"<p>{html.escape(intro)}</p>")
+    for sub, links in groups:
+        links = [(t, h) for t, h in links if h != self_href]
+        if not links:
+            continue
+        parts.append(f"<h3>{html.escape(sub)}</h3>")
+        parts.append(_grid(links))
+    parts.append("</section>")
+    return "".join(parts)
+
+
 def render_page(page: dict) -> str:
     path = page["path"]
     title = page["title"]
@@ -133,9 +369,21 @@ def render_page(page: dict) -> str:
 
     h1_html = "" if hero else f"<h1>{h1}</h1>"
 
+    # 내부링크 강화 블록(롱테일 관련 안내)을 본문 끝에 덧붙인다.
+    body = body + render_related(page)
+
     body, toc_items = inject_toc(body)
     toc_html = render_toc(toc_items)
     layout_cls = "page-layout has-toc" if toc_html else "page-layout"
+
+    # 네이버 소유확인(메인 전용) + 구조화 데이터(전 페이지)
+    naver = ""
+    if path == "":
+        naver = "".join(
+            f'<meta name="naver-site-verification" content="{c}">\n'
+            for c in NAVER_VERIFICATION_CODES
+        )
+    jsonld = build_jsonld(page, canonical)
 
     return f"""<!DOCTYPE html>
 <html lang="ko">
@@ -165,7 +413,7 @@ def render_page(page: dict) -> str:
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@600;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/style.css">
-{extra_head}</head>
+{naver}{extra_head}{jsonld}</head>
 <body>
 <header class="site-header">
   <div class="header-accent" aria-hidden="true"></div>
@@ -268,18 +516,32 @@ def build() -> None:
         chars = text_length(page["body"])
         noindex = page.get("noindex", False) or chars < MIN_INDEX_CHARS
         if not noindex:
-            sitemap_urls.append(BASE_URL.rstrip("/") + "/" + path)
+            sitemap_urls.append(path)
             indexable_pages.append(page)
         report.append((path or "/", chars, "noindex" if noindex else "index"))
 
     base = BASE_URL.rstrip("/")
     lastmod = BUILD_DT.strftime("%Y-%m-%d")
 
-    # sitemap.xml — lastmod 포함 (네이버·구글 공통 지원)
-    urls = "\n".join(
-        f"  <url><loc>{u}</loc><lastmod>{lastmod}</lastmod></url>"
-        for u in sitemap_urls
-    )
+    # sitemap.xml — lastmod·priority·changefreq 포함 (네이버·구글 색인 우선순위 명시)
+    def sitemap_meta(p):
+        if p == "":
+            return "1.0", "daily"
+        if p in ("jeju/", "jeju/jeju-si/", "jeju/seogwipo-si/", "jeju/places/",
+                 "themes/", "massage/"):
+            return "0.9", "weekly"
+        if AREA_RE.match(p) or PLACE_RE.match(p) or THEME_RE.match(p):
+            return "0.8", "weekly"
+        return "0.7", "monthly"
+
+    url_entries = []
+    for p in sitemap_urls:
+        prio, freq = sitemap_meta(p)
+        url_entries.append(
+            f"  <url><loc>{base}/{p}</loc><lastmod>{lastmod}</lastmod>"
+            f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+        )
+    urls = "\n".join(url_entries)
     with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
         f.write(
             '<?xml version="1.0" encoding="UTF-8"?>\n'

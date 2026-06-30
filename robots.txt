@@ -10,5 +10,5 @@ Allow: /
 User-agent: Bingbot
 Allow: /
 
-Sitemap: https://jeju-massage.pages.dev/sitemap.xml
-Sitemap: https://jeju-massage.pages.dev/rss.xml
+Sitemap: https://jeju-massage.netlify.app/sitemap.xml
+Sitemap: https://jeju-massage.netlify.app/rss.xml

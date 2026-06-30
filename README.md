@@ -10,10 +10,10 @@
 - 생성물(각 디렉터리의 `index.html`, `sitemap.xml`, `robots.txt`)도 저장소에 포함
 
 ```
-build.py              # 빌드 스크립트 (레이아웃·글자수 검사·sitemap 생성)
+build.py              # 빌드 스크립트 (레이아웃·글자수 검사·JSON-LD·내부링크·sitemap 생성)
 content/
-  site.py             # 상호·전화·BASE_URL·메뉴 구조
-  main.py             # 메인 페이지 (+ LocalBusiness/FAQPage JSON-LD)
+  site.py             # 상호·전화·BASE_URL·네이버 인증·후기/평점·메뉴 구조
+  main.py             # 메인 페이지 (허브)
   massage.py          # 제주 출장마사지 안내 페이지
   region_hubs.py      # 지역 허브: 제주 전체 / 제주시 / 서귀포시
   areas_jeju_eup.py   # 제주시 읍·면 7개
@@ -47,10 +47,15 @@ python3 build.py
 - 상단/하위 메뉴와 푸터에 키워드·지역명 대량 나열 없음
 - 모든 페이지 본문은 페이지별 고유 작성 (지역명만 바꾼 복붙 없음)
 - Canonical 자기 자신, Breadcrumb 전체 페이지 적용
+- 구조화 데이터(JSON-LD) 전 페이지 자동 적용 — `build.py` 가 일괄 생성
+  - `HealthAndBeautyBusiness` + `AggregateRating`(평점) + `Review`(후기)
+  - `BreadcrumbList`, 본문 FAQ 자동 추출 `FAQPage`, 메인 `WebSite`
+  - 후기·평점 데이터는 `content/site.py`의 `REVIEWS`에서 관리
+- 내부링크 강화 — leaf 페이지마다 롱테일 주제의 "함께 보면 좋은 안내" 블록 자동 생성
 
 ## 검색엔진 색인 (네이버·구글)
 
-배포 도메인: `https://jeju-massage.pages.dev` (`content/site.py`의 `BASE_URL`)
+배포 도메인: `https://jeju-massage.netlify.app` (`content/site.py`의 `BASE_URL`)
 
 빌드 시 자동 생성되는 색인 관련 파일:
 

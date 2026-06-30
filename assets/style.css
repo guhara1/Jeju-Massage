@@ -378,6 +378,23 @@ strong { color: var(--gold-soft); font-weight: 700; }
   border-radius: 12px; padding: 18px 22px; margin: 16px 0;
 }
 
+/* 관련 안내(내부링크 강화) */
+.page-content section.related-links {
+  background: linear-gradient(180deg, #0c1424 0%, #0a1322 100%);
+  border-color: var(--line-gold);
+}
+.related-links > p { color: var(--text-dim); margin-bottom: 18px; }
+.related-links h3 {
+  margin: 22px 0 4px; font-size: 0.96rem; color: var(--gold-soft);
+  letter-spacing: 0.02em;
+}
+.related-links h3::before { content: none; }
+.related-links .card-grid {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  margin: 10px 0 4px;
+}
+.related-links .card-grid a { padding: 13px 12px; font-size: 0.9rem; }
+
 /* FAQ */
 .faq-item { border-bottom: 1px solid var(--line); padding: 16px 0; }
 .faq-item:last-child { border-bottom: none; padding-bottom: 4px; }

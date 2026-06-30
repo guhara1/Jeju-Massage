@@ -1,76 +1,7 @@
 # 메인 페이지 — 허브 역할. 키워드를 몰아넣지 않고 상세 페이지로 연결한다.
-from .site import BASE_URL, BRAND, PHONE, PHONE_DISPLAY
+# 네이버 소유확인 메타와 구조화 데이터(JSON-LD)는 build.py 가 전 페이지에 일괄 적용한다.
+from .site import BRAND, PHONE, PHONE_DISPLAY
 from .pricing import PRICING
-
-# 네이버 서치어드바이저 사이트 소유확인 — 메인페이지에만 출력
-_NAVER_VERIFICATION = '<meta name="naver-site-verification" content="7fb4e141e28657966f57b39d9643b4fa10172ea9">\n'
-
-_JSONLD = f"""<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "HealthAndBeautyBusiness",
-  "name": "{BRAND}",
-  "telephone": "{PHONE}",
-  "url": "{BASE_URL}/",
-  "image": "{BASE_URL}/assets/og-image.png",
-  "description": "제주 전지역 방문 출장마사지·홈타이 예약 안내",
-  "areaServed": {{
-    "@type": "AdministrativeArea",
-    "name": "제주특별자치도"
-  }},
-  "openingHours": "Mo-Su 00:00-24:00",
-  "priceRange": "₩90,000 - ₩180,000"
-}}
-</script>
-<script type="application/ld+json">
-{{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {{
-      "@type": "Question",
-      "name": "제주 전지역 방문이 가능한가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "제주시와 서귀포시 39개 읍면동을 기준으로 안내하며, 예약 시간과 정확한 위치, 배정 상황에 따라 가능 여부가 달라집니다. 추자면·우도면 같은 도서 지역은 배편 사정이 있어 사전 협의가 필요합니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "제주공항이나 중문관광단지 근처 숙소도 가능한가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "공항, 항만, 터미널, 주요 관광지 인근은 교통거점별 안내 페이지에서 주변 숙소 환경과 함께 설명합니다. 정확한 가능 여부는 예약 시 숙소 위치를 기준으로 확인합니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "일도1동과 일도2동은 왜 따로 없나요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "일도1·2동, 이도1·2동처럼 숫자로 나뉜 행정동은 대표 동 페이지에서 통합 안내하여 비슷한 내용이 반복되는 중복 페이지를 만들지 않습니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "당일 예약도 가능한가요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "가능할 수 있지만 저녁 시간대와 주말, 관광 성수기에는 문의가 몰릴 수 있어 사전 예약을 권장합니다."
-      }}
-    }},
-    {{
-      "@type": "Question",
-      "name": "테마별 관리는 어디에서 확인하나요?",
-      "acceptedAnswer": {{
-        "@type": "Answer",
-        "text": "스웨디시, 로미로미, 호텔식마사지 등 테마별 안내 페이지에서 관리별 특징과 추천 대상을 확인할 수 있습니다."
-      }}
-    }}
-  ]
-}}
-</script>
-"""
 
 _HERO = f"""<section class="hero">
   <div class="hero-inner">
@@ -264,7 +195,6 @@ PAGE = {
     "desc": "제주 출장마사지·홈타이 안내입니다. 제주시·서귀포시·제주공항·중문·애월·성산 등 주요 지역 예약 정보를 확인하세요.",
     "h1": "제주 출장마사지·홈타이 예약 안내",
     "body": _BODY,
-    "extra_head": _NAVER_VERIFICATION + _JSONLD,
     "breadcrumb": [],
     "hero": _HERO,
 }
