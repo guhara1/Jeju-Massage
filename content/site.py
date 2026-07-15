@@ -1,5 +1,5 @@
 # 사이트 공통 설정
-BASE_URL = "https://jeju-massage.netlify.app"
+BASE_URL = "https://jejucalm.club"
 
 BRAND = "제주 예쁨 마사지"
 PHONE = "0508-202-4723"
