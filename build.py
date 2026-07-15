@@ -546,12 +546,16 @@ def build() -> None:
             f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
         )
     urls = "\n".join(url_entries)
-    with open(os.path.join(ROOT, "sitemap.xml"), "w", encoding="utf-8") as f:
-        f.write(
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            f"{urls}\n</urlset>\n"
-        )
+    sitemap_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{urls}\n</urlset>\n"
+    )
+    # sitemap.xml(기존) 은 그대로 보존하고, 동일 URL 세트를 sitemap1.xml 로도
+    # 발행한다 — 서치콘솔·서치어드바이저에 여러 사이트맵을 나눠 제출하기 위함.
+    for name in ("sitemap.xml", "sitemap1.xml"):
+        with open(os.path.join(ROOT, name), "w", encoding="utf-8") as f:
+            f.write(sitemap_xml)
 
     # rss.xml — 네이버 서치어드바이저 RSS 제출용 (구글도 sitemap으로 인식)
     pub_date = BUILD_DT.strftime("%a, %d %b %Y %H:%M:%S +0000")
@@ -593,6 +597,7 @@ def build() -> None:
             "User-agent: Bingbot\n"
             "Allow: /\n\n"
             f"Sitemap: {base}/sitemap.xml\n"
+            f"Sitemap: {base}/sitemap1.xml\n"
             f"Sitemap: {base}/rss.xml\n"
         )
 
