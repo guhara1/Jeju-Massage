@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from content import PAGES
 from content.site import (BASE_URL, BRAND, INDEXNOW_KEY, NAV,
+                          GOOGLE_VERIFICATION_CODES,
                           NAVER_VERIFICATION_CODES, PHONE, PHONE_DISPLAY,
                           RATING_VALUE, REVIEW_COUNT, REVIEWS)
 
@@ -376,12 +377,15 @@ def render_page(page: dict) -> str:
     toc_html = render_toc(toc_items)
     layout_cls = "page-layout has-toc" if toc_html else "page-layout"
 
-    # 네이버 소유확인(메인 전용) + 구조화 데이터(전 페이지)
+    # 네이버·구글 소유확인(메인 전용) + 구조화 데이터(전 페이지)
     naver = ""
     if path == "":
         naver = "".join(
             f'<meta name="naver-site-verification" content="{c}">\n'
             for c in NAVER_VERIFICATION_CODES
+        ) + "".join(
+            f'<meta name="google-site-verification" content="{c}">\n'
+            for c in GOOGLE_VERIFICATION_CODES
         )
     jsonld = build_jsonld(page, canonical)
 
