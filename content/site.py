@@ -11,6 +11,7 @@ NAVER_VERIFICATION_CODES = [
     "7fb4e141e28657966f57b39d9643b4fa10172ea9",
     "585229888908c4675978d0f3f5a7bf2130d55ef4",
     "de00152085b02e93b7deab48daaa4a626aaa8b1e",
+    "250e8d0158b8d8a1cfb0d1d6273a6ab794c93dad",
 ]
 
 # 구글 서치콘솔 사이트 소유확인 코드 — 메인 페이지 <head>에만 출력한다.
