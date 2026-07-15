@@ -55,7 +55,7 @@ python3 build.py
 
 ## 검색엔진 색인 (네이버·구글)
 
-배포 도메인: `https://jeju-massage.netlify.app` (`content/site.py`의 `BASE_URL`)
+배포 도메인: `https://jejucalm.club` (`content/site.py`의 `BASE_URL`)
 
 빌드 시 자동 생성되는 색인 관련 파일:
 

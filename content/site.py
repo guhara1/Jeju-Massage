@@ -1,5 +1,5 @@
 # 사이트 공통 설정
-BASE_URL = "https://jeju-massage.netlify.app"
+BASE_URL = "https://jejucalm.club"
 
 BRAND = "제주 예쁨 마사지"
 PHONE = "0508-202-4723"
@@ -10,6 +10,14 @@ PHONE_DISPLAY = "0508-202-4723"
 NAVER_VERIFICATION_CODES = [
     "7fb4e141e28657966f57b39d9643b4fa10172ea9",
     "585229888908c4675978d0f3f5a7bf2130d55ef4",
+    "de00152085b02e93b7deab48daaa4a626aaa8b1e",
+    "250e8d0158b8d8a1cfb0d1d6273a6ab794c93dad",
+]
+
+# 구글 서치콘솔 사이트 소유확인 코드 — 메인 페이지 <head>에만 출력한다.
+# 여러 계정으로 확인할 수 있도록 코드를 누적 보관한다.
+GOOGLE_VERIFICATION_CODES = [
+    "VraAvIxOvPTC444gnfgpEOiiYcMHSQWbFZCUQPzS758",
 ]
 
 # IndexNow API 키 — 빌드 시 루트에 {키}.txt 소유 확인 파일이 생성된다.
